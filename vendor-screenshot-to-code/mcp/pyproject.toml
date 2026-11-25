@@ -1,0 +1,23 @@
+[project]
+name = "screenshot-to-rn-mcp"
+version = "0.1.0"
+description = "MCP server: screenshot / recording → React Native or Expo via screenshot-to-code backend"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "mcp>=1.6.0",
+  "websockets>=14.0",
+  "uvicorn[standard]>=0.30",
+  "starlette>=0.37",
+]
+
+[project.scripts]
+screenshot-to-rn-mcp = "screenshot_to_rn_mcp.server:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["screenshot_to_rn_mcp*"]

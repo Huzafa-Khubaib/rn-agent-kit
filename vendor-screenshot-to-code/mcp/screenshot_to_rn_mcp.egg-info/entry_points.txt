@@ -1,0 +1,2 @@
+[console_scripts]
+screenshot-to-rn-mcp = screenshot_to_rn_mcp.server:main

@@ -1,0 +1,44 @@
+# All-in-one: screenshot-to-code backend + screenshot-to-rn Streamable HTTP MCP
+# Public endpoint: https://<service>/mcp  Health: /health
+FROM python:3.12.3-slim-bookworm
+
+ENV POETRY_VERSION=1.8.0 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    MCP_TRANSPORT=streamable-http \
+    MCP_HOST=0.0.0.0 \
+    BACKEND_PORT=7001 \
+    SCREENSHOT_TO_CODE_WS_URL=ws://127.0.0.1:7001
+
+RUN pip install --no-cache-dir "poetry==${POETRY_VERSION}" \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends bash \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# --- Backend (generation WebSocket) ---
+COPY backend/poetry.lock backend/pyproject.toml /app/backend/
+WORKDIR /app/backend
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --only main \
+    || poetry install --no-interaction --no-ansi
+
+# Skip Playwright/Chromium in hosted MCP image (optional preview tool only)
+COPY backend/ /app/backend/
+
+# --- MCP package ---
+WORKDIR /app
+COPY mcp/pyproject.toml mcp/setup.cfg mcp/README.md /app/mcp/
+COPY mcp/screenshot_to_rn_mcp /app/mcp/screenshot_to_rn_mcp/
+WORKDIR /app/mcp
+RUN pip install --no-cache-dir "mcp>=1.6.0" "websockets>=14.0" "uvicorn[standard]>=0.30" \
+    && pip install --no-cache-dir -e .
+
+COPY start-hosted.sh /app/start-hosted.sh
+RUN chmod +x /app/start-hosted.sh
+
+WORKDIR /app
+EXPOSE 8000
+# Render sets PORT; start script binds MCP to it
+CMD ["/app/start-hosted.sh"]

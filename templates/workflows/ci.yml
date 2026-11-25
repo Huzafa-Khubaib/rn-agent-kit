@@ -1,0 +1,120 @@
+# Static checks on every pull request: types, lint, unit tests, design-token drift.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Jest (coverage)
+        run: npm test -- --coverage --coverageReporters=text-summary --coverageReporters=lcov --coverageReporters=json-summary
+
+      - name: Design tokens up to date
+        # Re-validates generated theme vs tokens.json vs source-snapshot (fail on drift).
+        run: |
+          if [ -f design/source-snapshot.json ]; then
+            if command -v rn-agentic-dev >/dev/null 2>&1; then
+              rn-agentic-dev tokens check
+            else
+              npx --yes rn-agentic-dev tokens check || npm run tokens -- check
+            fi
+          else
+            echo "No design/source-snapshot.json — skipping tokens check."
+          fi
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Build summary markdown
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## CI · quality"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| \`tsc --noEmit\` | completed |"
+            echo "| eslint | completed |"
+            echo "| jest + coverage | completed |"
+            echo "| tokens check | completed (skipped if no snapshot) |"
+            echo ""
+            echo "**Job status:** \`${{ job.status }}\`"
+            echo ""
+            echo "Run: [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } > /tmp/ci-summary.md
+
+      - name: Comment summary on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2.9.0
+        with:
+          header: rn-agentic-dev-ci
+          path: /tmp/ci-summary.md
+          recreate: true
+
+      - name: Comment result on Jira (from branch name)
+        if: always()
+        env:
+          JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${JIRA_SITE_URL:-}" ] || [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
+            echo "JIRA_* secrets not set — skipping Jira comment."
+            exit 0
+          fi
+          KEY="$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)"
+          if [ -z "${KEY:-}" ]; then
+            echo "No Jira key in branch '$BRANCH' — skipping."
+            exit 0
+          fi
+          BODY=$(printf '%s' "CI ${JOB_STATUS}: ${RUN_URL}" | jq -Rs '{body: .}')
+          curl -sS -f -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "${JIRA_SITE_URL%/}/rest/api/2/issue/${KEY}/comment" \
+            -d "${BODY}"
+          echo "Commented on ${KEY}"

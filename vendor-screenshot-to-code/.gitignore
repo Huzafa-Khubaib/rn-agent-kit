@@ -1,0 +1,30 @@
+.aider*
+node_modules
+
+# Project-related files
+
+# Run logs
+run_logs/
+backend/local_assets/*
+backend/image_generation/eval_sets/*
+backend/image_generation/eval_results/*
+
+# Weird Docker setup related files
+backend/backend/*
+
+# Env vars
+frontend/.env.local
+.env
+
+# Local Python venv (mcp HTTP / pip install -e)
+mcp/.venv/
+**/.venv/
+
+# Mac files
+.DS_Store
+
+#Rodney
+.rodney
+
+# Walkthrough demo videos
+walkthrough/

@@ -1,0 +1,4 @@
+{
+  "version": 1,
+  "adapters": ["claude", "cursor", "agents-md", "copilot", "windsurf"]
+}

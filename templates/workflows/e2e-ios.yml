@@ -1,0 +1,134 @@
+# iOS Maestro E2E — NOT on every PR by default (macOS minutes are expensive).
+#
+# Cost trade-off:
+#   - ubuntu Android emulator PRs ≈ cheaper continuous feedback for most flows
+#   - macOS runners bill at a higher multiplier; running on every PR can dominate Actions spend
+#   - This workflow runs on: push to main, nightly cron, and workflow_dispatch (manual)
+#   - Enable pull_request only if the team accepts the cost or uses a labeled/path filter
+#
+name: E2E iOS
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    # Nightly 05:15 UTC
+    - cron: "15 5 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-ios-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  maestro-ios:
+    name: maestro-ios
+    runs-on: macos-14
+    timeout-minutes: 90
+    env:
+      APP_ID: ${{ vars.APP_ID || 'com.example.app' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: CocoaPods cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: |
+            ~/Library/Caches/CocoaPods
+            ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('**/Podfile.lock') }}
+          restore-keys: |
+            pods-${{ runner.os }}-
+
+      - name: Build iOS Simulator app
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f app.json ] || [ -f app.config.ts ] || [ -f app.config.js ]; then
+            echo "Expo — prebuild ios + xcodebuild"
+            npx expo prebuild --platform ios --no-install || true
+          fi
+          cd ios
+          pod install
+          WORKSPACE="$(ls -1 *.xcworkspace 2>/dev/null | head -n1)"
+          test -n "${WORKSPACE}"
+          SCHEME="$(xcodebuild -list -json -workspace "${WORKSPACE}" | jq -r '.workspace.schemes[0]')"
+          DEST='platform=iOS Simulator,name=iPhone 16'
+          xcodebuild \
+            -workspace "${WORKSPACE}" \
+            -scheme "${SCHEME}" \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "${DEST}" \
+            -derivedDataPath "$HOME/DerivedData" \
+            build
+          APP_PATH="$(find "$HOME/DerivedData" -name '*.app' -path '*/Debug-iphonesimulator/*' | head -n1)"
+          echo "APP_PATH=${APP_PATH}" >> "$GITHUB_ENV"
+          test -n "${APP_PATH}" && test -d "${APP_PATH}"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Boot simulator + install + Maestro
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "iPhone 16" || true
+          xcrun simctl bootstatus "iPhone 16" -b
+          xcrun simctl install booted "${APP_PATH}"
+          mkdir -p maestro-results
+          maestro test maestro/flows \
+            --format junit \
+            --output maestro-results/junit.xml \
+            --debug-output maestro-results
+
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: maestro-ios-${{ github.run_id }}
+          path: |
+            maestro-results/
+            ~/.maestro/tests/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Comment result on Jira
+        if: always()
+        env:
+          JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${JIRA_SITE_URL:-}" ] || [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
+            echo "JIRA_* secrets not set — skipping."
+            exit 0
+          fi
+          KEY="$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)"
+          [ -n "${KEY:-}" ] || { echo "No Jira key (main/nightly often have none) — skipping."; exit 0; }
+          BODY=$(printf '%s' "E2E iOS ${JOB_STATUS}: ${RUN_URL}" | jq -Rs '{body: .}')
+          curl -sS -f -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "${JIRA_SITE_URL%/}/rest/api/2/issue/${KEY}/comment" \
+            -d "${BODY}"

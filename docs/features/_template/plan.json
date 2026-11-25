@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "slug": "example",
+  "projectKey": "APP",
+  "title": "Example feature",
+  "tickets": [
+    {
+      "id": "epic-example",
+      "title": "[PRD] Example",
+      "type": "epic",
+      "body": "## Goal\nExample epic\n\n## Acceptance Criteria\nGiven a user\nWhen they open the feature\nThen they see the screen\n\n## testIDs\n- `example-root`\n\nhttps://www.figma.com/design/AbC/App?node-id=1-2\n"
+    },
+    {
+      "id": "story-example",
+      "title": "Example screen",
+      "type": "story",
+      "figmaUrl": "https://www.figma.com/design/AbC/App?node-id=1-2",
+      "figmaNodeId": "1:2",
+      "acIds": ["AC-1"],
+      "body": "## Acceptance Criteria\nGiven a user\nWhen they open Example\nThen content loads\n\n## testIDs\n- `example-root`\n- `example-submit`\n\nhttps://www.figma.com/design/AbC/App?node-id=1-2\n"
+    },
+    {
+      "id": "sub-tests",
+      "title": "Tests",
+      "type": "subtask",
+      "parentId": "story-example",
+      "body": "## Acceptance Criteria\nGiven AC-1\nWhen Maestro runs\nThen it passes\n\n## testIDs\n- `example-root`\n\nhttps://www.figma.com/design/AbC/App?node-id=1-2\n"
+    }
+  ]
+}

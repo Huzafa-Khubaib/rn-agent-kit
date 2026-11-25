@@ -1,0 +1,94 @@
+# OPTIONAL — EAS Build / Submit.
+# Skip this file if you do not use Expo Application Services. Copy it only when the team
+# wants cloud builds; local CI already covers lint/test/tokens + emulator E2E.
+#
+# Triggers: manual dispatch, or push of version tags (v*).
+# Secrets: EXPO_TOKEN (required). Store credentials: EXPO_APPLE_* / Google via EAS, not in YAML.
+#
+name: EAS Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: ios | android | all
+        required: true
+        default: all
+        type: choice
+        options: [ios, android, all]
+      profile:
+        description: eas.json profile
+        required: true
+        default: production
+        type: string
+      submit:
+        description: Also run eas submit after a successful build
+        required: true
+        default: false
+        type: boolean
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: eas-build-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  eas:
+    name: eas-${{ github.event.inputs.platform || 'all' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Guard: do nothing useful without EXPO_TOKEN (job still starts; step fails clearly).
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: EAS Build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${EXPO_TOKEN:-}" ]; then
+            echo "::error::EXPO_TOKEN secret is required for EAS. Skip this workflow if you do not use EAS."
+            exit 1
+          fi
+          PLATFORM="${{ github.event.inputs.platform || 'all' }}"
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          if [ "$PLATFORM" = "all" ]; then
+            eas build --platform all --profile "$PROFILE" --non-interactive --no-wait
+          else
+            eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --no-wait
+          fi
+
+      - name: EAS Submit (optional)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.submit == true }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          PLATFORM="${{ github.event.inputs.platform }}"
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          if [ "$PLATFORM" = "all" ]; then
+            eas submit --platform ios --profile "$PROFILE" --latest --non-interactive || true
+            eas submit --platform android --profile "$PROFILE" --latest --non-interactive || true
+          else
+            eas submit --platform "$PLATFORM" --profile "$PROFILE" --latest --non-interactive
+          fi

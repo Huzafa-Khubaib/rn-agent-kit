@@ -1,0 +1,254 @@
+{
+  "source": "figma",
+  "fileUrl": "https://www.figma.com/design/AbC123/Sample",
+  "variables": {
+    "variables": {
+      "v1": {
+        "id": "v1",
+        "name": "color/primary/500",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 0.23137254901960785,
+            "g": 0.5098039215686274,
+            "b": 0.9647058823529412,
+            "a": 1
+          }
+        }
+      },
+      "v2": {
+        "id": "v2",
+        "name": "color/primary/600",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 0.1450980392156863,
+            "g": 0.38823529411764707,
+            "b": 0.9215686274509803,
+            "a": 1
+          }
+        }
+      },
+      "v3": {
+        "id": "v3",
+        "name": "color/neutral/50",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 0.9764705882352941,
+            "g": 0.9803921568627451,
+            "b": 0.984313725490196,
+            "a": 1
+          }
+        }
+      },
+      "v4": {
+        "id": "v4",
+        "name": "color/neutral/900",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 0.06666666666666667,
+            "g": 0.09411764705882353,
+            "b": 0.15294117647058825,
+            "a": 1
+          }
+        }
+      },
+      "v5": {
+        "id": "v5",
+        "name": "color/white",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 1,
+            "g": 1,
+            "b": 1,
+            "a": 1
+          }
+        }
+      },
+      "v6": {
+        "id": "v6",
+        "name": "Color 1",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": {
+            "r": 1,
+            "g": 0,
+            "b": 1,
+            "a": 1
+          }
+        }
+      },
+      "v7": {
+        "id": "v7",
+        "name": "spacing/sm",
+        "resolvedType": "FLOAT",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": 8
+        }
+      },
+      "v8": {
+        "id": "v8",
+        "name": "spacing/md",
+        "resolvedType": "FLOAT",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": 16
+        }
+      },
+      "v9": {
+        "id": "v9",
+        "name": "radius/md",
+        "resolvedType": "FLOAT",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": 12
+        }
+      },
+      "v10": {
+        "id": "v10",
+        "name": "opacity/disabled",
+        "resolvedType": "FLOAT",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": 0.4
+        }
+      },
+      "v11": {
+        "id": "v11",
+        "name": "font/family/sans",
+        "resolvedType": "STRING",
+        "variableCollectionId": "VariableCollectionId:1",
+        "valuesByMode": {
+          "m1": "Inter"
+        }
+      },
+      "s1": {
+        "id": "s1",
+        "name": "color/background/default",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:2",
+        "valuesByMode": {
+          "m2": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v3"
+          },
+          "m3": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v4"
+          }
+        },
+        "description": "Screen background"
+      },
+      "s2": {
+        "id": "s2",
+        "name": "color/text/primary",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:2",
+        "valuesByMode": {
+          "m2": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v4"
+          },
+          "m3": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v5"
+          }
+        }
+      },
+      "s3": {
+        "id": "s3",
+        "name": "color/brand",
+        "resolvedType": "COLOR",
+        "variableCollectionId": "VariableCollectionId:2",
+        "valuesByMode": {
+          "m2": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v1"
+          },
+          "m3": {
+            "type": "VARIABLE_ALIAS",
+            "id": "v2"
+          }
+        }
+      }
+    },
+    "variableCollections": {
+      "VariableCollectionId:1": {
+        "id": "VariableCollectionId:1",
+        "name": "Primitives",
+        "defaultModeId": "m1",
+        "modes": [
+          {
+            "modeId": "m1",
+            "name": "Value"
+          }
+        ]
+      },
+      "VariableCollectionId:2": {
+        "id": "VariableCollectionId:2",
+        "name": "Semantic",
+        "defaultModeId": "m2",
+        "modes": [
+          {
+            "modeId": "m2",
+            "name": "Light"
+          },
+          {
+            "modeId": "m3",
+            "name": "Dark"
+          }
+        ]
+      }
+    }
+  },
+  "textStyles": [
+    {
+      "name": "Heading/H1",
+      "fontFamily": "Inter",
+      "fontStyle": "Bold",
+      "fontSize": 32,
+      "lineHeightPx": 40
+    },
+    {
+      "name": "Body/Regular",
+      "fontFamily": "Inter",
+      "fontStyle": "Regular",
+      "fontSize": 16,
+      "lineHeightPx": 24,
+      "letterSpacingPx": 0.2
+    }
+  ],
+  "effectStyles": [
+    {
+      "name": "Elevation/md",
+      "effects": [
+        {
+          "type": "DROP_SHADOW",
+          "visible": true,
+          "color": {
+            "r": 0,
+            "g": 0,
+            "b": 0,
+            "a": 0.1
+          },
+          "offset": {
+            "x": 0,
+            "y": 4
+          },
+          "radius": 8,
+          "spread": 0
+        }
+      ]
+    }
+  ]
+}

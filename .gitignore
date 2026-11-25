@@ -1,0 +1,16 @@
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+*.tsbuildinfo
+.npmrc
+*.tgz
+# Vendor screenshot-to-code: keep backend+mcp deployable; ignore bulky/local bits
+vendor-screenshot-to-code/frontend/
+vendor-screenshot-to-code/**/node_modules/
+vendor-screenshot-to-code/**/.venv/
+vendor-screenshot-to-code/.env
+vendor-screenshot-to-code/backend/.env
+vendor-screenshot-to-code/backend/run_logs/
+vendor-screenshot-to-code/backend/local_assets/

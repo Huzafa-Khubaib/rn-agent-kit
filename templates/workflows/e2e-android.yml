@@ -1,0 +1,158 @@
+# Android Maestro E2E on pull requests (emulator + KVM).
+# Requires: maestro/flows/**, debug APK buildable via Expo prebuild or RN CLI Gradle.
+name: E2E Android
+
+on:
+  pull_request:
+
+concurrency:
+  group: e2e-android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  maestro-android:
+    name: maestro-android
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Override in repo variables if needed: EXPO=true|false, APP_ID=com.example.app
+      APP_ID: ${{ vars.APP_ID || 'com.example.app' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Setup Node
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Setup Java
+        uses: actions/setup-java@v4.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3.2.1
+
+      - name: Gradle cache
+        uses: actions/cache@v4.2.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            android/.gradle
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/gradle-wrapper.properties', '**/build.gradle*', '**/libs.versions.toml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -f app.json ] || [ -f app.config.ts ] || [ -f app.config.js ]; then
+            echo "Expo detected — prebuild + assembleDebug"
+            npx expo prebuild --platform android --no-install || true
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+            echo "APK_PATH=$(pwd)/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          else
+            echo "RN CLI — gradlew assembleDebug"
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+            echo "APK_PATH=$(pwd)/app/build/outputs/apk/debug/app-debug.apk" >> "$GITHUB_ENV"
+          fi
+          # Optional: EAS local instead — uncomment and set EAS_PROJECT_ID secret/profile
+          # npx eas-cli build --platform android --profile preview --local --non-interactive
+          test -f "${APK_PATH}"
+
+      - name: Install Maestro
+        shell: bash
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Run Maestro on emulator
+        uses: reactivecircus/android-emulator-runner@v2.33.0
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb install -r "${APK_PATH}"
+            mkdir -p maestro-results
+            maestro test maestro/flows \
+              --format junit \
+              --output maestro-results/junit.xml \
+              --debug-output maestro-results \
+              || STATUS=$?
+            # Capture last frames / recordings if present
+            adb exec-out screencap -p > maestro-results/final.png || true
+            exit ${STATUS:-0}
+
+      - name: Upload Maestro artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: maestro-android-${{ github.run_id }}
+          path: |
+            maestro-results/
+            ~/.maestro/tests/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: PR summary comment
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2.9.0
+        with:
+          header: rn-agentic-dev-e2e-android
+          message: |
+            ## E2E Android (Maestro)
+            **Status:** `${{ job.status }}`
+            Artifacts: `maestro-android-${{ github.run_id }}` (junit, screenshots, debug output)
+            [Run ${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+      - name: Comment result on Jira
+        if: always()
+        env:
+          JIRA_SITE_URL: ${{ secrets.JIRA_SITE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${JIRA_SITE_URL:-}" ] || [ -z "${JIRA_EMAIL:-}" ] || [ -z "${JIRA_API_TOKEN:-}" ]; then
+            echo "JIRA_* secrets not set — skipping."
+            exit 0
+          fi
+          KEY="$(echo "$BRANCH" | grep -oE '[A-Z][A-Z0-9]+-[0-9]+' | head -n1 || true)"
+          [ -n "${KEY:-}" ] || { echo "No Jira key in branch"; exit 0; }
+          BODY=$(printf '%s' "E2E Android ${JOB_STATUS}: ${RUN_URL}" | jq -Rs '{body: .}')
+          curl -sS -f -u "${JIRA_EMAIL}:${JIRA_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -X POST \
+            "${JIRA_SITE_URL%/}/rest/api/2/issue/${KEY}/comment" \
+            -d "${BODY}"

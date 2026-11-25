@@ -1,0 +1,4 @@
+mcp>=1.6.0
+websockets>=14.0
+uvicorn[standard]>=0.30
+starlette>=0.37
