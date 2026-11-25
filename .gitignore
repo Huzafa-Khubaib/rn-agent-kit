@@ -14,3 +14,4 @@ vendor-screenshot-to-code/.env
 vendor-screenshot-to-code/backend/.env
 vendor-screenshot-to-code/backend/run_logs/
 vendor-screenshot-to-code/backend/local_assets/
+.github/workflows/
